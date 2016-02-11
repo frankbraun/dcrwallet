@@ -89,7 +89,7 @@ func (a *addressPool) initialize(branch uint32, w *Wallet) error {
 		}
 
 		// Start with the address on tip if address reuse is disabled.
-		if !w.addressReuse {
+		if !w.addressReuse || w.ChainClient() == nil {
 			// If address reuse is disabled, we compare to the last
 			// stored address.
 			if lastSavedAddr != nil {
@@ -135,6 +135,11 @@ func (a *addressPool) initialize(branch uint32, w *Wallet) error {
 // address to the toDelete map. If the address pool runs out of addresses, it
 // generates more from the address manager.
 func (a *addressPool) GetNewAddress() (dcrutil.Address, error) {
+	chainClient, err := a.wallet.requireChainClient()
+	if err != nil {
+		return nil, err
+	}
+
 	// Replenish the pool if we're at the last address.
 	if a.cursor == len(a.addresses)-1 || len(a.addresses) == 0 {
 		if a.branch == waddrmgr.InternalBranch {
@@ -173,7 +178,7 @@ func (a *addressPool) GetNewAddress() (dcrutil.Address, error) {
 	// Add the address to the notifications watcher.
 	addrs := make([]dcrutil.Address, 1)
 	addrs[0] = curAddress
-	if err := a.wallet.chainSvr.NotifyReceived(addrs); err != nil {
+	if err := chainClient.NotifyReceived(addrs); err != nil {
 		return nil, err
 	}
 
